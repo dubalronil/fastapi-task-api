@@ -37,8 +37,20 @@ def health_check():
 
 
 @app.get("/tasks", response_model=list[schemas.TaskResponse])
-def list_tasks(db: Session = Depends(get_db)):
-    return db.query(models.Task).all()
+def list_tasks(
+    completed: bool | None = None,
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Task)
+
+    # Only filter by completed if the client actually asked for it.
+    if completed is not None:
+        query = query.filter(models.Task.completed == completed)
+
+    # skip/limit implement pagination so we never dump the whole table.
+    return query.offset(skip).limit(limit).all()
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.TaskResponse)

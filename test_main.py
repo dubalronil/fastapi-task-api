@@ -60,6 +60,38 @@ def test_list_tasks_starts_empty():
     assert response.json() == []  # fresh db, no tasks yet
 
 
+def test_filter_by_completed():
+    client.post("/tasks", json={"title": "Done task", "completed": True})
+    client.post("/tasks", json={"title": "Todo task", "completed": False})
+
+    response = client.get("/tasks?completed=true")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "Done task"
+
+
+def test_pagination_limit():
+    for i in range(3):
+        client.post("/tasks", json={"title": f"Task {i}"})
+
+    response = client.get("/tasks?limit=2")
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+
+def test_pagination_skip():
+    for i in range(3):
+        client.post("/tasks", json={"title": f"Task {i}"})
+
+    # Skip the first two, so only the third comes back.
+    response = client.get("/tasks?skip=2")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["title"] == "Task 2"
+
+
 def test_get_one_task():
     created = client.post("/tasks", json={"title": "Find me"}).json()
     response = client.get(f"/tasks/{created['id']}")
