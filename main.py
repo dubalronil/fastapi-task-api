@@ -22,6 +22,15 @@ def get_db():
         db.close()
 
 
+# Fetch a task by id, or raise a 404. Shared by the endpoints that
+# operate on a single task so the lookup logic lives in one place.
+def get_task_or_404(task_id: int, db: Session) -> models.Task:
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
 @app.get("/")
 def health_check():
     return {"status": "ok"}
@@ -34,10 +43,7 @@ def list_tasks(db: Session = Depends(get_db)):
 
 @app.get("/tasks/{task_id}", response_model=schemas.TaskResponse)
 def get_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return get_task_or_404(task_id, db)
 
 
 @app.post("/tasks", response_model=schemas.TaskResponse, status_code=201)
@@ -52,9 +58,7 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
 
 @app.put("/tasks/{task_id}", response_model=schemas.TaskResponse)
 def update_task(task_id: int, updated: schemas.TaskCreate, db: Session = Depends(get_db)):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
+    task = get_task_or_404(task_id, db)
 
     task.title = updated.title
     task.description = updated.description
@@ -66,9 +70,7 @@ def update_task(task_id: int, updated: schemas.TaskCreate, db: Session = Depends
 
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
+    task = get_task_or_404(task_id, db)
 
     db.delete(task)
     db.commit()
