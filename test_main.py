@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import models
-from database import Base
-from main import app, get_db
+from database import Base, get_db
+from main import app
 
 # A separate database used ONLY for tests — never touches tasks.db.
 SQLALCHEMY_TEST_URL = "sqlite:///./test.db"
