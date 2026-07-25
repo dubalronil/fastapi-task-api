@@ -1,13 +1,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# The database URL. For SQLite it's just a file path — tasks.db will be
-# created in the project folder. The three slashes then the path is the format.
-SQLALCHEMY_DATABASE_URL = "sqlite:///./tasks.db"
+from config import settings
 
-# The engine is the core connection to the database.
+# The database URL now comes from config (which reads .env), instead of
+# being hardcoded here. Swap environments by changing .env, not the code.
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    settings.database_url,
     connect_args={"check_same_thread": False},
 )
 
