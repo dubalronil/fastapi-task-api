@@ -1,17 +1,25 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
+
+import models
+import schemas
+from database import engine, SessionLocal, Base
+
+# Create the tasks table in tasks.db if it doesn't already exist.
+# Runs once at startup.
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# In-memory store for now. This resets every time the server restarts
-tasks = []
-next_id = 1
 
-
-class Task(BaseModel):
-    title: str
-    description: str | None = None
-    completed: bool = False
+# Dependency: opens a fresh database session for each request and
+# guarantees it gets closed afterwards, even if the request errors.
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @app.get("/")
@@ -19,56 +27,49 @@ def health_check():
     return {"status": "ok"}
 
 
-@app.get("/tasks/{task_id}")
-def get_task(task_id: int):
-    # Walk the list looking for a matching id, return as soon as we find it.
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
-
-    # Fell out of the loop without a match — that id doesn't exist.
-    raise HTTPException(status_code=404, detail="Task not found")
+@app.get("/tasks", response_model=list[schemas.TaskResponse])
+def list_tasks(db: Session = Depends(get_db)):
+    return db.query(models.Task).all()
 
 
-@app.get("/tasks")
-def list_tasks():
-    return tasks
+@app.get("/tasks/{task_id}", response_model=schemas.TaskResponse)
+def get_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
 
 
-@app.post("/tasks")
-def create_task(task: Task):
-    # next_id is a module-level counter, so we need `global` to reassign it.
-    global next_id
-
-    # Turn the Pydantic model into a plain dict so we can tack on an id.
-    new_task = task.model_dump()
-    new_task["id"] = next_id
-
-    tasks.append(new_task)
-    next_id += 1  # hand the next task a fresh id
-
+@app.post("/tasks", response_model=schemas.TaskResponse, status_code=201)
+def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
+    # Build a SQLAlchemy Task from the incoming data, then persist it.
+    new_task = models.Task(**task.model_dump())
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)  # reload so new_task.id is populated
     return new_task
 
 
-@app.put("/tasks/{task_id}")
-def update_task(task_id: int, updated: Task):
-    # enumerate gives us the position (index) alongside each task, so we can
-    # overwrite the right slot in the list once we find a match.
-    for index, task in enumerate(tasks):
-        if task["id"] == task_id:
-            new_task = updated.model_dump()
-            new_task["id"] = task_id  # keep the original id, don't let it change
-            tasks[index] = new_task
-            return new_task
+@app.put("/tasks/{task_id}", response_model=schemas.TaskResponse)
+def update_task(task_id: int, updated: schemas.TaskCreate, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
 
-    raise HTTPException(status_code=404, detail="Task not found")
+    task.title = updated.title
+    task.description = updated.description
+    task.completed = updated.completed
+    db.commit()
+    db.refresh(task)
+    return task
 
 
 @app.delete("/tasks/{task_id}")
-def delete_task(task_id: int):
-    for index, task in enumerate(tasks):
-        if task["id"] == task_id:
-            tasks.pop(index)  # remove it from the list by position
-            return {"message": f"Task {task_id} deleted"}
+def delete_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
 
-    raise HTTPException(status_code=404, detail="Task not found")
+    db.delete(task)
+    db.commit()
+    return {"message": f"Task {task_id} deleted"}

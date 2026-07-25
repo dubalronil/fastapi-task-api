@@ -6,7 +6,10 @@ venv/
 __pycache__/
 *.pyc
 
-# Environment variables / secrets (we'll use this later)
+# SQLite database file — this is local data, not code
+*.db
+
+# Environment variables
 .env
 
 # Editor / OS junk
