@@ -1,13 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
-import models
-import schemas
-from database import get_db
+from app import models, schemas
+from app.database import get_db
 
 # A mini-app for everything under /tasks. `prefix` is prepended to every
 # route below, and `tags` groups them together in the /docs page.
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+# ge=1 because ids start at 1, so anything lower can't match a row.
+TaskId = Annotated[int, Path(ge=1)]
+
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 # Fetch a task by id, or raise a 404. Shared by the single-task endpoints.
@@ -20,10 +26,12 @@ def get_task_or_404(task_id: int, db: Session) -> models.Task:
 
 @router.get("", response_model=list[schemas.TaskResponse])
 def list_tasks(
+    db: DbSession,
     completed: bool | None = None,
-    skip: int = 0,
-    limit: int = 10,
-    db: Session = Depends(get_db),
+    skip: Annotated[int, Query(ge=0)] = 0,
+    # le=100 matters most here. Without a ceiling, ?limit=999999 would make us
+    # load the whole table.
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ):
     query = db.query(models.Task)
 
@@ -36,34 +44,51 @@ def list_tasks(
 
 
 @router.get("/{task_id}", response_model=schemas.TaskResponse)
-def get_task(task_id: int, db: Session = Depends(get_db)):
+def get_task(task_id: TaskId, db: DbSession):
     return get_task_or_404(task_id, db)
 
 
 @router.post("", response_model=schemas.TaskResponse, status_code=201)
-def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
+def create_task(task: schemas.TaskCreate, db: DbSession):
     # Build a SQLAlchemy Task from the incoming data, then persist it.
     new_task = models.Task(**task.model_dump())
     db.add(new_task)
     db.commit()
-    db.refresh(new_task)  # reload so new_task.id is populated
+    db.refresh(new_task)  # reload so the id and timestamps are populated
     return new_task
 
 
 @router.put("/{task_id}", response_model=schemas.TaskResponse)
-def update_task(task_id: int, updated: schemas.TaskCreate, db: Session = Depends(get_db)):
+def replace_task(task_id: TaskId, replacement: schemas.TaskReplace, db: DbSession):
     task = get_task_or_404(task_id, db)
 
-    task.title = updated.title
-    task.description = updated.description
-    task.completed = updated.completed
+    # No exclude_unset here, unlike PATCH. TaskReplace has no optional fields,
+    # so every key is present and overwriting all of them is what PUT means.
+    for field, value in replacement.model_dump().items():
+        setattr(task, field, value)
+
+    db.commit()
+    db.refresh(task)
+    return task
+
+
+@router.patch("/{task_id}", response_model=schemas.TaskResponse)
+def update_task(task_id: TaskId, changes: schemas.TaskUpdate, db: DbSession):
+    task = get_task_or_404(task_id, db)
+
+    # exclude_unset gives back only the keys the client actually sent, not the
+    # ones Pydantic filled in from defaults. So a field left out never gets
+    # assigned, and an empty body is a no-op.
+    for field, value in changes.model_dump(exclude_unset=True).items():
+        setattr(task, field, value)
+
     db.commit()
     db.refresh(task)
     return task
 
 
 @router.delete("/{task_id}")
-def delete_task(task_id: int, db: Session = Depends(get_db)):
+def delete_task(task_id: TaskId, db: DbSession):
     task = get_task_or_404(task_id, db)
 
     db.delete(task)

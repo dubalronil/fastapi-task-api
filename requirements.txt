@@ -1,4 +1,5 @@
-fastapi[standard]
-sqlalchemy
-pydantic-settings
-pytest
+# Runtime dependencies, pinned so a fresh clone installs what was tested.
+# Development tooling lives in requirements-dev.txt.
+fastapi[standard]==0.139.2
+sqlalchemy==2.0.51
+pydantic-settings==2.14.2

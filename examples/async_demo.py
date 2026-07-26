@@ -1,6 +1,6 @@
 """A tiny demo proving how async overlaps waiting time.
 
-Run it with:  python async_demo.py
+Run it with:  python examples/async_demo.py
 
 It simulates three slow "LLM calls" (each just waits 2 seconds) and times
 how long they take when run one-after-another vs. concurrently with async.
@@ -40,6 +40,11 @@ async def run_async() -> float:
     return time.perf_counter() - start
 
 
-print("Three tasks, each 'waiting' 2 seconds:\n")
-print(f"  Synchronous (one after another): {run_sync():.1f}s")
-print(f"  Async (overlapping waits):       {asyncio.run(run_async()):.1f}s")
+def main() -> None:
+    print("Three tasks, each 'waiting' 2 seconds:\n")
+    print(f"  Synchronous (one after another): {run_sync():.1f}s")
+    print(f"  Async (overlapping waits):       {asyncio.run(run_async()):.1f}s")
+
+
+if __name__ == "__main__":
+    main()
