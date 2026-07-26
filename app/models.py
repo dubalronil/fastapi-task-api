@@ -12,7 +12,7 @@ class Task(Base):
     # also sets min_length=1.
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    completed = Column(Boolean, default=False)
+    completed = Column(Boolean, default=False, nullable=False)
 
     # server_default instead of default, so the database sets the time rather
     # than whichever app server happened to handle the request.

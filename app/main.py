@@ -6,13 +6,10 @@ Docs:         http://127.0.0.1:8000/docs
 
 from fastapi import FastAPI
 
-from app import models  # noqa: F401 — imported so its table registers on Base
-from app.database import Base, engine
 from app.routers import tasks
 
-# Creates missing tables only. It never adds columns to a table that already
-# exists, so changing models.py means rebuilding the database until we add Alembic.
-Base.metadata.create_all(bind=engine)
+# No create_all() here. Alembic owns the schema, so tables come from
+# `alembic upgrade head` rather than from starting the app.
 
 app = FastAPI(title="Task API")
 

@@ -193,9 +193,7 @@ def test_updated_at_moves_on_patch(client, backdate):
     created = client.post("/tasks", json={"title": "Move me"}).json()
     backdate(created["id"])
 
-    patched = client.patch(
-        f"/tasks/{created['id']}", json={"completed": True}
-    ).json()
+    patched = client.patch(f"/tasks/{created['id']}", json={"completed": True}).json()
 
     assert not patched["updated_at"].startswith("2020")
     assert patched["created_at"].startswith("2020")  # created_at must not move

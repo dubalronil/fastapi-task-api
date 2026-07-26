@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from app import models  # noqa: F401 — imported so its table registers on Base
 from app.database import Base, get_db
 from app.main import app
 
@@ -11,9 +12,7 @@ TEST_DATABASE_URL = "sqlite:///./test.db"
 test_engine = create_engine(
     TEST_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=test_engine
-)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 # The test version of get_db: hands out sessions bound to the TEST database.
@@ -51,9 +50,7 @@ def backdate():
     def _backdate(task_id: int, when: str = "2020-01-01 00:00:00"):
         with test_engine.begin() as conn:
             conn.execute(
-                text(
-                    "UPDATE tasks SET created_at = :w, updated_at = :w WHERE id = :i"
-                ),
+                text("UPDATE tasks SET created_at = :w, updated_at = :w WHERE id = :i"),
                 {"w": when, "i": task_id},
             )
 
