@@ -22,7 +22,8 @@ def upgrade() -> None:
     """Upgrade schema."""
     # Backfill first. Autogenerate can read the schema but not the rows, so it
     # doesn't know some already have NULL here. Without this the ALTER fails.
-    op.execute("UPDATE tasks SET completed = 0 WHERE completed IS NULL")
+    # FALSE rather than 0: both SQLite and Postgres accept it as a boolean.
+    op.execute("UPDATE tasks SET completed = FALSE WHERE completed IS NULL")
 
     with op.batch_alter_table('tasks', schema=None) as batch_op:
         batch_op.alter_column('completed',

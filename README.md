@@ -95,20 +95,70 @@ pytest
 | `GET` | `/tasks/{id}` | Get one task |
 | `PUT` | `/tasks/{id}` | Replace a task, all fields required |
 | `PATCH` | `/tasks/{id}` | Update some fields, the rest are left alone |
-| `DELETE` | `/tasks/{id}` | Delete a task |
+| `DELETE` | `/tasks/{id}` | Delete a task (`204`, no body) |
+
+## Errors
+
+Every failure returns the same shape, so a client needs one code path rather
+than one per kind of error.
+
+```json
+{
+  "status": 404,
+  "title": "Not Found",
+  "detail": "Task not found",
+  "request_id": "d4e2d4359c7a"
+}
+```
+
+Validation failures add an `errors` list naming the fields:
+
+```json
+{
+  "status": 422,
+  "title": "Unprocessable Entity",
+  "detail": "Request validation failed",
+  "request_id": "d4e2d4359c7a",
+  "errors": [{ "field": "body.title", "message": "String should have at least 1 character" }]
+}
+```
+
+Unexpected errors return a plain `500` and nothing about our internals. The
+real exception goes to the log instead, under the same `request_id`.
+
+## Logging
+
+Every request gets an id, returned in the `X-Request-ID` header and included
+in error responses. The same id is on every log line for that request, so a
+user quoting it is enough to find what happened. An incoming `X-Request-ID` is
+reused rather than replaced, so the id survives across services.
+
+```
+14:45:24 INFO  [265044088f5d] app.access: request method=POST path=/tasks status=201 duration_ms=9.5
+```
+
+`LOG_JSON=true` switches to one JSON object per line for production:
+
+```json
+{"time": "...", "level": "INFO", "logger": "app.access", "message": "request",
+ "request_id": "d4e2d4359c7a", "method": "POST", "path": "/tasks", "status": 201, "duration_ms": 8.9}
+```
 
 ## Layout
 
 ```
 app/
-  main.py       app setup
-  config.py     settings from .env
-  database.py   engine and session
-  models.py     database tables
-  schemas.py    request and response shapes
-  routers/      endpoints
+  main.py             app setup
+  config.py           settings from .env
+  database.py         engine and session
+  models.py           database tables
+  schemas.py          request and response shapes
+  errors.py           one error shape for the whole API
+  logging_config.py   log format and the request-id context
+  middleware.py       request ids and the access log
+  routers/            endpoints
 alembic/
-  versions/     migration scripts
+  versions/           migration scripts
 tests/
 examples/
 ```

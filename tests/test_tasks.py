@@ -32,7 +32,7 @@ def test_get_one_task(client):
 def test_get_missing_task_returns_404(client):
     response = client.get("/tasks/999")
     assert response.status_code == 404
-    assert response.json() == {"detail": "Task not found"}
+    assert response.json()["detail"] == "Task not found"
 
 
 # ---- Filtering and pagination ----
@@ -62,6 +62,21 @@ def test_pagination_skip(client):
     data = client.get("/tasks?skip=2").json()
     assert len(data) == 1
     assert data[0]["title"] == "Task 2"
+
+
+def test_pagination_order_is_deterministic(client):
+    # Pages only mean something if the underlying order is fixed. SQLite
+    # happens to return insertion order even without ORDER BY, so this pins
+    # the contract for engines like Postgres that guarantee nothing.
+    for i in range(5):
+        client.post("/tasks", json={"title": f"Task {i}"})
+
+    first_page = client.get("/tasks?limit=3").json()
+    second_page = client.get("/tasks?skip=3&limit=3").json()
+
+    ids = [task["id"] for task in first_page + second_page]
+    assert ids == sorted(ids)  # ascending id order
+    assert len(set(ids)) == 5  # no row skipped or repeated across the pages
 
 
 # ---- PUT replaces the whole task ----
@@ -161,7 +176,9 @@ def test_patch_missing_task_returns_404(client):
 
 def test_delete_task(client):
     created = client.post("/tasks", json={"title": "Delete me"}).json()
-    assert client.delete(f"/tasks/{created['id']}").status_code == 200
+    response = client.delete(f"/tasks/{created['id']}")
+    assert response.status_code == 204
+    assert response.text == ""  # 204 means no body at all
 
     # After deleting, fetching it should 404.
     assert client.get(f"/tasks/{created['id']}").status_code == 404

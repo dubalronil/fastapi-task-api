@@ -40,7 +40,9 @@ def list_tasks(
         query = query.filter(models.Task.completed == completed)
 
     # skip/limit implement pagination so we never dump the whole table.
-    return query.offset(skip).limit(limit).all()
+    # order_by makes the pages deterministic: without ORDER BY the database is
+    # free to return rows in any order, so pages could skip or repeat rows.
+    return query.order_by(models.Task.id).offset(skip).limit(limit).all()
 
 
 @router.get("/{task_id}", response_model=schemas.TaskResponse)
@@ -87,10 +89,12 @@ def update_task(task_id: TaskId, changes: schemas.TaskUpdate, db: DbSession):
     return task
 
 
-@router.delete("/{task_id}")
+@router.delete("/{task_id}", status_code=204)
 def delete_task(task_id: TaskId, db: DbSession):
+    # 204 No Content, so no response body. There is nothing useful to say
+    # beyond "it worked", and the old {"message": ...} was a third response
+    # shape for clients to handle.
     task = get_task_or_404(task_id, db)
 
     db.delete(task)
     db.commit()
-    return {"message": f"Task {task_id} deleted"}

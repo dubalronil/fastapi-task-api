@@ -8,7 +8,7 @@ def test_create_rejects_empty_title(client):
     response = client.post("/tasks", json={"title": ""})
     assert response.status_code == 422
     # FastAPI tells the client exactly which field failed.
-    assert response.json()["detail"][0]["loc"] == ["body", "title"]
+    assert response.json()["errors"][0]["field"] == "body.title"
 
 
 def test_create_rejects_whitespace_only_title(client):
