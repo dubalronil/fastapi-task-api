@@ -35,6 +35,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=BATCH,
+        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -53,6 +54,9 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=BATCH,
+            # Off by default, which means a column whose type or length changed
+            # in models.py produces no migration and no drift warning.
+            compare_type=True,
         )
 
         with context.begin_transaction():

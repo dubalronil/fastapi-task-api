@@ -1,17 +1,21 @@
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, func
 
 from app.database import Base
+from app.schemas import DESCRIPTION_MAX, TITLE_MAX
 
 
 class Task(Base):
     __tablename__ = "tasks"
 
-    id = Column(Integer, primary_key=True, index=True)
+    # No index=True: the primary key is already uniquely indexed, so a second
+    # index on the same column would only cost writes.
+    id = Column(Integer, primary_key=True)
 
-    # nullable=False blocks NULL but still allows "", which is why schemas.py
-    # also sets min_length=1.
-    title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    # Lengths match schemas.py so the limit holds for writers that never go
+    # through the API, such as a migration or a script. nullable=False blocks
+    # NULL but still allows "", which is why schemas.py also sets min_length=1.
+    title = Column(String(TITLE_MAX), nullable=False)
+    description = Column(String(DESCRIPTION_MAX), nullable=True)
     completed = Column(Boolean, default=False, nullable=False)
 
     # server_default instead of default, so the database sets the time rather

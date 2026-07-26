@@ -1,19 +1,18 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app import models, schemas
-from app.database import get_db
+from app.database import DbSession
+from app.errors import ERROR_RESPONSES, NOT_FOUND_RESPONSE
 
 # A mini-app for everything under /tasks. `prefix` is prepended to every
 # route below, and `tags` groups them together in the /docs page.
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+router = APIRouter(prefix="/tasks", tags=["tasks"], responses=ERROR_RESPONSES)
 
 # ge=1 because ids start at 1, so anything lower can't match a row.
 TaskId = Annotated[int, Path(ge=1)]
-
-DbSession = Annotated[Session, Depends(get_db)]
 
 
 # Fetch a task by id, or raise a 404. Shared by the single-task endpoints.
@@ -45,7 +44,9 @@ def list_tasks(
     return query.order_by(models.Task.id).offset(skip).limit(limit).all()
 
 
-@router.get("/{task_id}", response_model=schemas.TaskResponse)
+@router.get(
+    "/{task_id}", response_model=schemas.TaskResponse, responses=NOT_FOUND_RESPONSE
+)
 def get_task(task_id: TaskId, db: DbSession):
     return get_task_or_404(task_id, db)
 
@@ -60,7 +61,9 @@ def create_task(task: schemas.TaskCreate, db: DbSession):
     return new_task
 
 
-@router.put("/{task_id}", response_model=schemas.TaskResponse)
+@router.put(
+    "/{task_id}", response_model=schemas.TaskResponse, responses=NOT_FOUND_RESPONSE
+)
 def replace_task(task_id: TaskId, replacement: schemas.TaskReplace, db: DbSession):
     task = get_task_or_404(task_id, db)
 
@@ -74,7 +77,9 @@ def replace_task(task_id: TaskId, replacement: schemas.TaskReplace, db: DbSessio
     return task
 
 
-@router.patch("/{task_id}", response_model=schemas.TaskResponse)
+@router.patch(
+    "/{task_id}", response_model=schemas.TaskResponse, responses=NOT_FOUND_RESPONSE
+)
 def update_task(task_id: TaskId, changes: schemas.TaskUpdate, db: DbSession):
     task = get_task_or_404(task_id, db)
 
@@ -89,7 +94,7 @@ def update_task(task_id: TaskId, changes: schemas.TaskUpdate, db: DbSession):
     return task
 
 
-@router.delete("/{task_id}", status_code=204)
+@router.delete("/{task_id}", status_code=204, responses=NOT_FOUND_RESPONSE)
 def delete_task(task_id: TaskId, db: DbSession):
     # 204 No Content, so no response body. There is nothing useful to say
     # beyond "it worked", and the old {"message": ...} was a third response

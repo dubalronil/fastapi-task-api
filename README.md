@@ -1,6 +1,21 @@
 # Task API
 
-A simple REST API for managing tasks, built with FastAPI, SQLAlchemy and SQLite.
+A production-style REST API for managing tasks built with FastAPI and PostgreSQL.
+
+This project focuses on backend engineering fundamentals rather than application complexity. It demonstrates API design, validation, database migrations, testing, logging, and deployment practices using a simple task management domain.
+
+## Features
+
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Alembic migrations
+- Request validation with Pydantic
+- Structured logging
+- Consistent error responses
+- PostgreSQL integration tests
+- Docker (after next milestone)
+- Railway deployment (after next milestone)
 
 ## Architecture
 
@@ -22,7 +37,7 @@ models.py          describes the tasks table
 database.py        opens a session, closes it when the request ends
   │
   ▼
-SQLite (tasks.db)
+Postgres
   │
   ▼
 schemas.py         decides which fields go back to the client
@@ -53,7 +68,7 @@ Alembic isn't part of handling a request. It runs only when the database
 structure changes.
 
 Many projects use `Base.metadata.create_all()`, which builds missing tables at
-startup. It fails quietly: it checks whether a *table* exists, never whether
+startup. It fails quietly: it checks whether a _table_ exists, never whether
 its columns match your models. Add a column, restart, and an existing database
 is untouched — the app boots fine and 500s on the first request that needs it.
 
@@ -67,8 +82,11 @@ Existing data survives, and every schema change is written down and reviewable.
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env
+docker compose up -d          # starts Postgres
 ```
+
+`.env` is optional — the defaults already match `docker-compose.yml`. Copy
+`.env.example` to `.env` if you want to change anything.
 
 ## Run
 
@@ -85,17 +103,22 @@ Docs at http://127.0.0.1:8000/docs
 pytest
 ```
 
+Tests run against Postgres, on the same container, in their own databases
+(`tasks_test` and `tasks_migrations`) which are created automatically. Running
+them on the engine we deploy to means engine-specific bugs surface here rather
+than in production.
+
 ## Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/` | Health check |
-| `GET` | `/tasks` | List tasks (`completed`, `skip`, `limit`) |
-| `POST` | `/tasks` | Create a task |
-| `GET` | `/tasks/{id}` | Get one task |
-| `PUT` | `/tasks/{id}` | Replace a task, all fields required |
-| `PATCH` | `/tasks/{id}` | Update some fields, the rest are left alone |
-| `DELETE` | `/tasks/{id}` | Delete a task (`204`, no body) |
+| Method   | Path          | Description                                         |
+| -------- | ------------- | --------------------------------------------------- |
+| `GET`    | `/`           | Health check (`503` if the database is unreachable) |
+| `GET`    | `/tasks`      | List tasks (`completed`, `skip`, `limit`)           |
+| `POST`   | `/tasks`      | Create a task                                       |
+| `GET`    | `/tasks/{id}` | Get one task                                        |
+| `PUT`    | `/tasks/{id}` | Replace a task, all fields required                 |
+| `PATCH`  | `/tasks/{id}` | Update some fields, the rest are left alone         |
+| `DELETE` | `/tasks/{id}` | Delete a task (`204`, no body)                      |
 
 ## Errors
 
@@ -119,7 +142,12 @@ Validation failures add an `errors` list naming the fields:
   "title": "Unprocessable Entity",
   "detail": "Request validation failed",
   "request_id": "d4e2d4359c7a",
-  "errors": [{ "field": "body.title", "message": "String should have at least 1 character" }]
+  "errors": [
+    {
+      "field": "body.title",
+      "message": "String should have at least 1 character"
+    }
+  ]
 }
 ```
 
@@ -140,8 +168,17 @@ reused rather than replaced, so the id survives across services.
 `LOG_JSON=true` switches to one JSON object per line for production:
 
 ```json
-{"time": "...", "level": "INFO", "logger": "app.access", "message": "request",
- "request_id": "d4e2d4359c7a", "method": "POST", "path": "/tasks", "status": 201, "duration_ms": 8.9}
+{
+  "time": "...",
+  "level": "INFO",
+  "logger": "app.access",
+  "message": "request",
+  "request_id": "d4e2d4359c7a",
+  "method": "POST",
+  "path": "/tasks",
+  "status": 201,
+  "duration_ms": 8.9
+}
 ```
 
 ## Layout
@@ -161,6 +198,7 @@ alembic/
   versions/           migration scripts
 tests/
 examples/
+docker-compose.yml    Postgres for local development
 ```
 
 ## Migrations
@@ -176,7 +214,19 @@ alembic current                               # what version this database is on
 
 Always read what `--autogenerate` writes. It compares the schema, not the
 rows, so anything involving existing data (backfills, defaults) has to be
-added by hand.
+added by hand. It also cannot see an unbounded `VARCHAR` becoming
+`VARCHAR(n)`, so column length changes need writing manually too.
+
+## Docker
+
+Only the database runs in Docker. The app runs on the host with uvicorn.
+
+```bash
+docker compose up -d      # start Postgres
+docker compose down       # stop it, keeping the data
+docker compose down -v    # stop it and delete the data
+docker compose exec db psql -U tasks -d tasks
+```
 
 ## Notes
 

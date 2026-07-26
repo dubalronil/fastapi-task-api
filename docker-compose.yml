@@ -1,0 +1,25 @@
+# Postgres for local development. Only the database runs in Docker; the app
+# still runs on the host with uvicorn.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tasks
+      POSTGRES_PASSWORD: tasks
+      POSTGRES_DB: tasks
+    ports:
+      - "5432:5432"
+    volumes:
+      # Named volume, so data survives `docker compose down` and is wiped by
+      # `docker compose down -v`.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Postgres accepts connections a moment after the container starts.
+      # This is how anything waiting on it knows the difference.
+      test: ["CMD-SHELL", "pg_isready -U tasks -d tasks"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

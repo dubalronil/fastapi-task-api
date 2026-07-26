@@ -13,7 +13,12 @@ def test_create_task(client):
     data = response.json()
     assert data["title"] == "Write tests"
     assert data["completed"] is False
-    assert data["id"] == 1  # first task in a fresh db
+
+    # The id is whatever the sequence hands out. Tests roll back their rows but
+    # sequences are not transactional, so asserting a specific number here
+    # would only pass depending on which tests ran first.
+    assert data["id"] > 0
+    assert client.get(f"/tasks/{data['id']}").status_code == 200
 
 
 def test_list_tasks_starts_empty(client):
@@ -171,6 +176,14 @@ def test_patch_missing_task_returns_404(client):
     assert client.patch("/tasks/999", json={"title": "Ghost"}).status_code == 404
 
 
+def test_put_missing_task_returns_404(client):
+    response = client.put(
+        "/tasks/999",
+        json={"title": "Ghost", "description": None, "completed": False},
+    )
+    assert response.status_code == 404
+
+
 # ---- Delete ----
 
 
@@ -184,6 +197,10 @@ def test_delete_task(client):
     assert client.get(f"/tasks/{created['id']}").status_code == 404
 
 
+def test_delete_missing_task_returns_404(client):
+    assert client.delete("/tasks/999").status_code == 404
+
+
 # ---- Timestamps ----
 
 
@@ -195,15 +212,20 @@ def test_timestamps_are_set_on_create(client):
 
 
 def test_timestamps_cannot_be_set_by_the_client(client):
-    data = client.post(
+    # No input schema declares these, and unknown fields are rejected rather
+    # than dropped, so the attempt fails loudly instead of silently.
+    response = client.post(
         "/tasks",
         json={
             "title": "Nice try",
             "created_at": "1999-01-01T00:00:00",
             "updated_at": "1999-01-01T00:00:00",
         },
-    ).json()
-    assert not data["created_at"].startswith("1999")
+    )
+    assert response.status_code == 422
+
+    # And nothing was stored under a client-chosen timestamp.
+    assert client.get("/tasks").json() == []
 
 
 def test_updated_at_moves_on_patch(client, backdate):

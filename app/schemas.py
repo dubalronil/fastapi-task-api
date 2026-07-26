@@ -10,15 +10,21 @@ DESCRIPTION_MAX = 2000
 Title = Annotated[str, Field(min_length=1, max_length=TITLE_MAX)]
 Description = Annotated[str, Field(max_length=DESCRIPTION_MAX)]
 
-# Strips strings before the length checks run, so "   " becomes "" and then
-# fails min_length. Input schemas only, never the response.
-_STRIP = ConfigDict(str_strip_whitespace=True)
+# Shared by every input schema, never by the response.
+#
+# str_strip_whitespace runs before the length checks, so "   " becomes "" and
+# then fails min_length.
+#
+# extra="forbid" rejects fields we don't define instead of dropping them. A
+# client that misspells "title" should be told, not left wondering why its
+# task came back empty.
+_INPUT = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
 # What a client can send when creating a task. No id here, the database
 # assigns that.
 class TaskCreate(BaseModel):
-    model_config = _STRIP
+    model_config = _INPUT
 
     title: Title
     description: Description | None = None
@@ -28,7 +34,7 @@ class TaskCreate(BaseModel):
 # What a client must send to PUT a task. Every field is required, because PUT
 # replaces the whole task and a missing field shouldn't reset silently.
 class TaskReplace(BaseModel):
-    model_config = _STRIP
+    model_config = _INPUT
 
     title: Title
     # Field() with no default keeps this required even though it can be null.
@@ -39,7 +45,7 @@ class TaskReplace(BaseModel):
 # What a client can send to PATCH a task. Everything is optional, so leaving a
 # field out means "don't touch it".
 class TaskUpdate(BaseModel):
-    model_config = _STRIP
+    model_config = _INPUT
 
     title: Title | None = None
     description: Description | None = None
@@ -69,7 +75,6 @@ class TaskResponse(BaseModel):
     description: str | None = None
     completed: bool
 
-    # Not in any input schema, so a client can't set them. SQLite returns
-    # these without a timezone offset, so they read as UTC with nothing saying so.
+    # Not in any input schema, so a client can't set them.
     created_at: datetime
     updated_at: datetime

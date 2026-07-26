@@ -12,15 +12,28 @@ from app.main import app
 ERROR_KEYS = {"status", "title", "detail", "request_id"}
 
 
-# Test-only route: raises the kind of exception the auth lessons will raise,
-# so header forwarding is covered without adding a production endpoint.
-@app.get("/_test/unauthorized", include_in_schema=False)
-def _raise_unauthorized():
-    raise HTTPException(
-        status_code=401,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+@pytest.fixture
+def unauthorized_route():
+    """Adds a route raising a 401 with a custom header, then removes it.
+
+    Registering this at module level would leave it on the shared app object
+    for the rest of the run, which is not something a test should do to the
+    application it is testing.
+    """
+    path = "/_test/unauthorized"
+
+    @app.get(path, include_in_schema=False)
+    def _raise_unauthorized():
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    yield path
+    app.router.routes = [
+        route for route in app.router.routes if getattr(route, "path", None) != path
+    ]
 
 
 def test_raised_404_uses_the_standard_shape(client):
@@ -51,10 +64,10 @@ def test_405_preserves_the_allow_header(client):
     assert "GET" in response.headers["allow"]
 
 
-def test_custom_exception_headers_are_preserved(client):
+def test_custom_exception_headers_are_preserved(client, unauthorized_route):
     # A 401 without WWW-Authenticate is useless — the client never learns how
     # to authenticate. Exception headers ride along with the standard envelope.
-    response = client.get("/_test/unauthorized")
+    response = client.get(unauthorized_route)
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Bearer"
     assert response.headers["x-request-id"]  # ours is still there too
@@ -98,7 +111,11 @@ def test_every_error_has_the_same_keys(client, method, path, payload):
     assert set(body) <= ERROR_KEYS | {"errors"}
 
 
-def test_unhandled_exception_returns_500_without_leaking(monkeypatch, caplog):
+def test_unhandled_exception_returns_500_without_leaking(
+    db_session, monkeypatch, caplog
+):
+    # db_session is what installs the get_db override. Without it this test
+    # would build its own client and talk to the real application database.
     def explode(*args, **kwargs):
         raise RuntimeError("connection string: postgres://user:hunter2@db")
 

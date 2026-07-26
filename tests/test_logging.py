@@ -18,6 +18,15 @@ def test_incoming_request_id_is_reused(client):
     assert response.headers["x-request-id"] == "from-the-proxy"
 
 
+def test_overlong_request_id_is_replaced(client):
+    # The header is client-controlled and lands on every log line for the
+    # request, so an unbounded value would let a caller pad the logs.
+    response = client.get("/tasks", headers={"X-Request-ID": "x" * 5000})
+    returned = response.headers["x-request-id"]
+    assert returned != "x" * 5000
+    assert len(returned) <= 64
+
+
 def test_each_request_gets_a_distinct_id(client):
     first = client.get("/tasks").headers["x-request-id"]
     second = client.get("/tasks").headers["x-request-id"]

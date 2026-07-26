@@ -89,3 +89,8 @@ def configure_logging() -> None:
     # at INFO. Raise their floor so our own logs stay findable.
     for noisy in ("httpx", "httpcore", "sqlalchemy.engine"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+    # uvicorn.access logs every request too, in its own format and with its own
+    # handler, so silencing it needs more than the root level. Ours carries the
+    # request id and duration, so the duplicate adds nothing.
+    logging.getLogger("uvicorn.access").disabled = True

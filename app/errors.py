@@ -37,6 +37,18 @@ class ErrorResponse(BaseModel):
     errors: list[FieldError] | None = None
 
 
+# Attached to the routes so /openapi.json describes the errors we actually
+# send. Without this FastAPI documents its own default 422 shape, which stopped
+# being true once these handlers took over.
+ERROR_RESPONSES: dict[int | str, dict] = {
+    422: {"model": ErrorResponse, "description": "Request validation failed"},
+    500: {"model": ErrorResponse, "description": "Internal server error"},
+}
+NOT_FOUND_RESPONSE: dict[int | str, dict] = {
+    404: {"model": ErrorResponse, "description": "Task not found"}
+}
+
+
 def _error(
     status_code: int,
     detail: str,

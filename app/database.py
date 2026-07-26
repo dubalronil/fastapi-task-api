@@ -1,13 +1,19 @@
+from typing import Annotated
+
+from fastapi import Depends
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from app.config import settings
 
+_is_sqlite = settings.database_url.startswith("sqlite")
+
 engine = create_engine(
     settings.database_url,
-    # SQLite only. It normally refuses connections shared between threads,
-    # which breaks FastAPI's threadpool. Remove this when we move to Postgres.
-    connect_args={"check_same_thread": False},
+    # SQLite refuses connections shared between threads, which breaks FastAPI's
+    # threadpool. Postgres rejects options it doesn't recognise, so this can
+    # only be passed when we are actually on SQLite.
+    connect_args={"check_same_thread": False} if _is_sqlite else {},
 )
 
 # A factory that produces database sessions, one per request.
@@ -25,3 +31,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Lives here next to get_db so every route spells the dependency the same way.
+DbSession = Annotated[Session, Depends(get_db)]

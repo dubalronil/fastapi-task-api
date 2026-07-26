@@ -10,6 +10,9 @@ from app.logging_config import request_id
 
 logger = logging.getLogger("app.access")
 
+# Long enough for a UUID or a trace id from a proxy, short enough to be harmless.
+MAX_REQUEST_ID_LENGTH = 64
+
 
 def register_middleware(app: FastAPI) -> None:
     @app.middleware("http")
@@ -18,6 +21,11 @@ def register_middleware(app: FastAPI) -> None:
         # usually sets this, and keeping it lets one id follow a request across
         # every service that handled it.
         incoming = request.headers.get("x-request-id")
+        # Only accept an id that looks like one. It is client-controlled and
+        # ends up on every log line for this request, so an unbounded value
+        # would let a caller pad the logs with whatever it likes.
+        if not (incoming and len(incoming) <= MAX_REQUEST_ID_LENGTH):
+            incoming = None
         current_id = incoming or uuid4().hex[:12]
         # No reset token: each request runs in its own task with its own copy
         # of the context, so this cannot leak into another request.

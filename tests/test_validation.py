@@ -36,6 +36,44 @@ def test_create_rejects_overlong_description(client):
     assert response.status_code == 422
 
 
+def test_create_rejects_unknown_fields(client):
+    # extra="forbid". A misspelled field name is a client bug, and silently
+    # dropping it would leave them wondering why the value never appeared.
+    response = client.post("/tasks", json={"title": "ok", "titel": "typo"})
+    assert response.status_code == 422
+    assert response.json()["errors"][0]["field"] == "body.titel"
+
+
+def test_patch_rejects_unknown_fields(client):
+    created = client.post("/tasks", json={"title": "Keep me"}).json()
+    response = client.patch(f"/tasks/{created['id']}", json={"complete": True})
+    assert response.status_code == 422
+
+
+def test_put_rejects_unknown_fields(client):
+    created = client.post("/tasks", json={"title": "Keep me"}).json()
+    response = client.put(
+        f"/tasks/{created['id']}",
+        json={
+            "title": "New",
+            "description": None,
+            "completed": False,
+            "extra": "nope",
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_put_enforces_the_same_constraints_as_create(client):
+    # Length limits were only covered on POST and PATCH before this.
+    created = client.post("/tasks", json={"title": "Keep me"}).json()
+    response = client.put(
+        f"/tasks/{created['id']}",
+        json={"title": "x" * 201, "description": None, "completed": False},
+    )
+    assert response.status_code == 422
+
+
 def test_rejected_task_is_never_written(client):
     # Validation runs first, so create_task never ran and nothing was saved.
     client.post("/tasks", json={"title": ""})
