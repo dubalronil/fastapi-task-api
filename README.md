@@ -1,6 +1,11 @@
 # Task API
 
+[![CI](https://github.com/dubalronil/fastapi-task-api/actions/workflows/ci.yml/badge.svg)](https://github.com/dubalronil/fastapi-task-api/actions/workflows/ci.yml)
+
 A production-style REST API for managing tasks built with FastAPI and PostgreSQL.
+
+**Live:** https://fastapi-task-api-production.up.railway.app —
+[interactive docs](https://fastapi-task-api-production.up.railway.app/docs)
 
 This project focuses on backend engineering fundamentals rather than application complexity. It demonstrates API design, validation, database migrations, testing, logging, and deployment practices using a simple task management domain.
 
@@ -14,8 +19,9 @@ This project focuses on backend engineering fundamentals rather than application
 - Structured logging
 - Consistent error responses
 - PostgreSQL integration tests
-- Docker (after next milestone)
-- Railway deployment (after next milestone)
+- Docker image and Compose stack
+- GitHub Actions CI
+- Deployed on Railway
 
 ## Architecture
 
@@ -213,8 +219,10 @@ alembic/
   versions/           migration scripts
 tests/
 examples/
+.github/workflows/    CI: lint, format, tests, image build
 Dockerfile            production image, app only
 docker-compose.yml    local stack: Postgres, plus the app behind a profile
+railway.json          deployment configuration
 ```
 
 ## Migrations
@@ -250,9 +258,47 @@ docker compose exec db psql -U tasks -d tasks
 ```
 
 The image runs as a non-root user and contains only runtime dependencies —
-no tests, no `pytest`, no `ruff`. `alembic upgrade head` runs before uvicorn
-starts, which is fine for a single instance; with several replicas each would
-race to migrate, so a hosted deploy should run migrations as a separate step.
+no tests, no `pytest`, no `ruff`. In Compose, `alembic upgrade head` runs in the
+app's start command, which is fine for one instance. With several replicas each
+would race to migrate on boot, which is why the deployed setup runs migrations
+as a separate step instead — see below.
+
+## Deployment
+
+Deployed on Railway from this repository. Pushing to `main` triggers a build.
+
+`railway.json` holds the configuration:
+
+```json
+{
+  "build": { "builder": "DOCKERFILE" },
+  "deploy": {
+    "preDeployCommand": ["alembic upgrade head"],
+    "healthcheckPath": "/"
+  }
+}
+```
+
+`preDeployCommand` runs migrations once per deploy, in its own container,
+before any app instance starts — so replicas never race to migrate. The
+healthcheck hits `/`, which queries the database, so an instance that cannot
+reach Postgres is never sent traffic.
+
+Environment variables on the service:
+
+| Variable        | Value                                            |
+| --------------- | ------------------------------------------------ |
+| `DATABASE_URL`  | reference to the Postgres service                |
+| `LOG_JSON`      | `true`                                           |
+| `CORS_ORIGINS`  | the frontend's origin                            |
+
+`PORT` is injected by Railway and read by the container's start command.
+`DATABASE_URL` is stored as a reference rather than a copied string, so it
+stays correct if the database is ever replaced.
+
+Hosting providers hand out `postgresql://` URLs, which SQLAlchemy maps to
+psycopg2 — a driver this project does not install. `config.py` normalises them
+to `postgresql+psycopg://`, so `DATABASE_URL` can be used exactly as given.
 
 ## Notes
 
