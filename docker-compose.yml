@@ -1,5 +1,12 @@
-# Postgres for local development. Only the database runs in Docker; the app
-# still runs on the host with uvicorn.
+# Local development stack.
+#
+#   docker compose up -d                  Postgres only; run the app on the
+#                                         host with uvicorn --reload
+#   docker compose --profile app up -d    the whole stack in containers
+#
+# The app service sits behind a profile so the default command keeps working
+# the way it did before, and so a container does not take port 8000 from the
+# uvicorn you are running by hand.
 services:
   db:
     image: postgres:17
@@ -20,6 +27,31 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+
+  app:
+    profiles: ["app"]
+    build: .
+    environment:
+      # "db", not "localhost". Compose gives each service a DNS name on a
+      # private network; localhost inside this container would be the app
+      # itself. The port is 5432 because that is the port inside the network,
+      # regardless of what it is published as on the host.
+      DATABASE_URL: postgresql+psycopg://tasks:tasks@db:5432/tasks
+      LOG_JSON: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        # Waits for the healthcheck above, not merely for the container to
+        # start, so migrations do not run against a database still booting.
+        condition: service_healthy
+    # Migrations run here rather than in the Dockerfile, so the image stays a
+    # plain "serve the app" image and each environment decides when to migrate.
+    # Fine for one instance; with several replicas each would race to migrate
+    # on boot, which is why hosted deploys use a separate release step instead.
+    command: >
+      sh -c "alembic upgrade head &&
+             exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
 volumes:
   pgdata:

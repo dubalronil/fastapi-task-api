@@ -198,7 +198,8 @@ alembic/
   versions/           migration scripts
 tests/
 examples/
-docker-compose.yml    Postgres for local development
+Dockerfile            production image, app only
+docker-compose.yml    local stack: Postgres, plus the app behind a profile
 ```
 
 ## Migrations
@@ -219,14 +220,24 @@ added by hand. It also cannot see an unbounded `VARCHAR` becoming
 
 ## Docker
 
-Only the database runs in Docker. The app runs on the host with uvicorn.
+Two ways to run it. By default only Postgres is containerised and the app runs
+on the host, which keeps `--reload` working. The `app` profile runs everything
+in containers, which is what the deployed image does.
 
 ```bash
-docker compose up -d      # start Postgres
-docker compose down       # stop it, keeping the data
-docker compose down -v    # stop it and delete the data
+docker compose up -d                 # Postgres only
+docker compose --profile app up -d   # Postgres + the app on :8000
+
+docker compose down                  # stop, keeping the data
+docker compose down -v               # stop and delete the data
+docker compose logs -f app           # follow the app logs
 docker compose exec db psql -U tasks -d tasks
 ```
+
+The image runs as a non-root user and contains only runtime dependencies —
+no tests, no `pytest`, no `ruff`. `alembic upgrade head` runs before uvicorn
+starts, which is fine for a single instance; with several replicas each would
+race to migrate, so a hosted deploy should run migrations as a separate step.
 
 ## Notes
 

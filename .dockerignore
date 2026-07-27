@@ -1,0 +1,35 @@
+# Everything here is excluded from the build context, so it is never sent to
+# the Docker daemon and can never end up in the image.
+
+# Secrets. The image must get its config from the environment, not from a file
+# baked in at build time.
+.env
+
+# Machine-specific and large.
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.db
+
+# History and tooling the running app has no use for.
+.git/
+.gitignore
+.github/
+.pytest_cache/
+.ruff_cache/
+.claude/
+.DS_Store
+
+# Development-only. Tests and their dependencies do not belong in a production
+# image: they enlarge it and widen what an attacker can reach.
+tests/
+examples/
+requirements-dev.txt
+pyproject.toml
+
+# Docker's own files, and docs.
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md

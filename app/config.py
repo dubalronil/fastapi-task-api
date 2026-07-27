@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,20 @@ class Settings(BaseSettings):
 
     # Real environment variables win over .env, which wins over the default above.
     model_config = SettingsConfigDict(env_file=".env")
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver(cls, url: str) -> str:
+        # Hosting providers hand out "postgres://" or "postgresql://".
+        # SQLAlchemy maps the first to no dialect at all and the second to
+        # psycopg2, which we do not install, so the app would fail on boot
+        # against a provider-supplied URL. Normalising here lets the deploy use
+        # DATABASE_URL exactly as given.
+        if url.startswith("postgres://"):
+            url = f"postgresql://{url.removeprefix('postgres://')}"
+        if url.startswith("postgresql://"):
+            url = f"postgresql+psycopg://{url.removeprefix('postgresql://')}"
+        return url
 
 
 settings = Settings()
