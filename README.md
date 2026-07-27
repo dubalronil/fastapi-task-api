@@ -154,6 +154,21 @@ Validation failures add an `errors` list naming the fields:
 Unexpected errors return a plain `500` and nothing about our internals. The
 real exception goes to the log instead, under the same `request_id`.
 
+## CORS
+
+Browsers block cross-origin calls unless the API approves them, so the frontend
+origin has to be listed:
+
+```bash
+CORS_ORIGINS=http://localhost:3000,https://<your-frontend>.vercel.app
+```
+
+`X-Request-ID` is in `expose_headers`, so page scripts can actually read it —
+a browser hides response headers the server does not explicitly expose.
+
+CORS is enforced by the browser, not the server: `curl` and other non-browser
+clients ignore it entirely.
+
 ## Logging
 
 Every request gets an id, returned in the `X-Request-ID` header and included
