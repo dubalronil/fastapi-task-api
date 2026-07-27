@@ -251,7 +251,6 @@ app/
 alembic/
   versions/           migration scripts
 tests/
-examples/
 .github/workflows/    CI: lint, format, tests, image build
 Dockerfile            production image, app only
 docker-compose.yml    local stack: Postgres, plus the app behind a profile

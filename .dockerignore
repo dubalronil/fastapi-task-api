@@ -24,7 +24,6 @@ __pycache__/
 # Development-only. Tests and their dependencies do not belong in a production
 # image: they enlarge it and widen what an attacker can reach.
 tests/
-examples/
 requirements-dev.txt
 pyproject.toml
 
