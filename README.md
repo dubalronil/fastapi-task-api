@@ -4,10 +4,17 @@
 
 A production-style REST API for managing tasks built with FastAPI and PostgreSQL.
 
-**Live:** https://fastapi-task-api-production.up.railway.app —
+**Live API:** https://fastapi-task-api-production.up.railway.app —
 [interactive docs](https://fastapi-task-api-production.up.railway.app/docs)
 
+**Live demo:** https://task-api-frontend-ten.vercel.app —
+a small Next.js frontend consuming this API
+([repo](https://github.com/dubalronil/task-api-frontend))
+
 This project focuses on backend engineering fundamentals rather than application complexity. It demonstrates API design, validation, database migrations, testing, logging, and deployment practices using a simple task management domain.
+
+[**Design decisions**](docs/DESIGN.md) — why it is built this way, and what each
+choice cost.
 
 ## Features
 
@@ -22,7 +29,7 @@ This project focuses on backend engineering fundamentals rather than application
 - PostgreSQL integration tests
 - Docker image and Compose stack
 - GitHub Actions CI
-- Deployed on Railway
+- Deployed on Railway, with a Next.js frontend consuming it
 
 ## Architecture
 
@@ -163,15 +170,21 @@ real exception goes to the log instead, under the same `request_id`.
 
 ## CORS
 
-Browsers block cross-origin calls unless the API approves them, so the frontend
-origin has to be listed:
+Configured but unused, deliberately. Browsers block cross-origin calls unless
+the API approves them, so an origin calling from a browser has to be listed:
 
 ```bash
-CORS_ORIGINS=http://localhost:3000,https://<your-frontend>.vercel.app
+CORS_ORIGINS=http://localhost:3000
 ```
 
-`X-Request-ID` is in `expose_headers`, so page scripts can actually read it —
-a browser hides response headers the server does not explicitly expose.
+The frontend never needs this. It calls its own server route, which forwards to
+this API — a server-to-server request, which no browser is involved in and CORS
+does not apply to. The deployed frontend's origin is not in `CORS_ORIGINS` and
+the app works anyway.
+
+It stays for anything that does call the API from a browser, since the read
+endpoints are public. `X-Request-ID` is in `expose_headers` so page scripts can
+read it; a browser hides response headers the server does not explicitly expose.
 
 CORS is enforced by the browser, not the server: `curl` and other non-browser
 clients ignore it entirely.
@@ -313,8 +326,10 @@ Environment variables on the service:
 | --------------- | ------------------------------------------------ |
 | `DATABASE_URL`  | reference to the Postgres service                |
 | `LOG_JSON`      | `true`                                           |
-| `CORS_ORIGINS`  | the frontend's origin                            |
 | `API_KEY`       | a long random string, required for writes        |
+
+`CORS_ORIGINS` is not set in production: the frontend calls the API from its
+own server, so no browser ever makes a cross-origin request.
 
 `PORT` is injected by Railway and read by the container's start command.
 `DATABASE_URL` is stored as a reference rather than a copied string, so it
