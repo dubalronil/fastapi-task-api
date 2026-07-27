@@ -13,9 +13,6 @@ a small Next.js frontend consuming this API
 
 This project focuses on backend engineering fundamentals rather than application complexity. It demonstrates API design, validation, database migrations, testing, logging, and deployment practices using a simple task management domain.
 
-[**Design decisions**](docs/DESIGN.md) — why it is built this way, and what each
-choice cost.
-
 ## Features
 
 - FastAPI
@@ -322,11 +319,11 @@ reach Postgres is never sent traffic.
 
 Environment variables on the service:
 
-| Variable        | Value                                            |
-| --------------- | ------------------------------------------------ |
-| `DATABASE_URL`  | reference to the Postgres service                |
-| `LOG_JSON`      | `true`                                           |
-| `API_KEY`       | a long random string, required for writes        |
+| Variable       | Value                                     |
+| -------------- | ----------------------------------------- |
+| `DATABASE_URL` | reference to the Postgres service         |
+| `LOG_JSON`     | `true`                                    |
+| `API_KEY`      | a long random string, required for writes |
 
 `CORS_ORIGINS` is not set in production: the frontend calls the API from its
 own server, so no browser ever makes a cross-origin request.
