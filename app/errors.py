@@ -49,7 +49,7 @@ NOT_FOUND_RESPONSE: dict[int | str, dict] = {
 }
 
 
-def _error(
+def error_response(
     status_code: int,
     detail: str,
     errors: list[FieldError] | None = None,
@@ -85,7 +85,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_http_exception(request: Request, exc: StarletteHTTPException):
         # Catches both the HTTPExceptions we raise and the ones Starlette
         # raises itself, so an unmatched URL looks like every other error.
-        return _error(exc.status_code, str(exc.detail), headers=exc.headers)
+        return error_response(exc.status_code, str(exc.detail), headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(request: Request, exc: RequestValidationError):
@@ -95,11 +95,11 @@ def register_error_handlers(app: FastAPI) -> None:
             )
             for err in exc.errors()
         ]
-        return _error(422, "Request validation failed", errors)
+        return error_response(422, "Request validation failed", errors)
 
     @app.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exc: Exception):
         # Anything that reaches here is our bug, not the client's. Log the real
         # exception and send back nothing that describes our internals.
         logger.exception("Unhandled error on %s %s", request.method, request.url.path)
-        return _error(500, "Internal server error")
+        return error_response(500, "Internal server error")

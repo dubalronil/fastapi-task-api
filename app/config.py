@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     # where a log collector has to parse them.
     log_json: bool = False
 
+    # Shared secret required by the write endpoints. Unset leaves them open,
+    # which suits local development; any public deployment should set it.
+    api_key: str | None = None
+
+    # Requests allowed per client, in the "limits" library's format
+    # ("60/minute", "1000/hour"). Tunable per environment without a code change.
+    rate_limit: str = "60/minute"
+
     # Browser origins allowed to call this API. The default covers a Next.js
     # dev server; the deployed frontend's origin is added per environment.
     #

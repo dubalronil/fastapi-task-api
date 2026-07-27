@@ -14,7 +14,9 @@ from app.database import DbSession
 from app.errors import register_error_handlers
 from app.logging_config import configure_logging
 from app.middleware import register_middleware
+from app.rate_limit import register_rate_limiting
 from app.routers import tasks
+from app.security import warn_if_unprotected
 
 # Before the app exists, so startup messages use our format too.
 configure_logging()
@@ -26,6 +28,7 @@ app = FastAPI(title="Task API")
 
 register_error_handlers(app)
 register_middleware(app)
+register_rate_limiting(app)
 
 # Named origins rather than "*": a wildcard cannot be combined with credentials
 # later, and listing them keeps the allowed callers visible in config.
@@ -43,11 +46,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Request-ID"],
+    # X-API-Key is allowed so a cross-origin caller is not blocked by a CORS
+    # error that hides the real problem. The key still belongs server-side —
+    # anything a browser sends is visible to whoever is using that browser.
+    allow_headers=["Content-Type", "X-Request-ID", "X-API-Key"],
     expose_headers=["X-Request-ID"],
 )
 
 app.include_router(tasks.router)
+
+warn_if_unprotected()
 
 
 @app.get("/")
