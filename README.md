@@ -18,7 +18,6 @@ This project focuses on backend engineering fundamentals rather than application
 - Request validation with Pydantic
 - Structured logging
 - Consistent error responses
-- Per-client rate limiting
 - API key on write endpoints
 - PostgreSQL integration tests
 - Docker image and Compose stack
@@ -198,20 +197,6 @@ key can write.
 sends is visible to whoever is using that browser. A frontend should call its
 own server route, which holds the key and forwards the request.
 
-## Rate limiting
-
-Each client address gets `RATE_LIMIT` requests per window (default
-`60/minute`). Exceeding it returns `429` in the standard error shape with a
-`Retry-After` header. The health check is exempt, since a throttled health
-check would get a healthy instance restarted.
-
-The caller is identified from the rightmost `X-Forwarded-For` entry — the one
-our own proxy observed. Earlier entries are supplied by the caller and can be
-forged, so reading the leftmost would let anyone bypass the limit.
-
-Counters are held in memory, so they reset on restart and each instance counts
-separately. Fine for one instance; a shared store would be needed for several.
-
 ## Logging
 
 Every request gets an id, returned in the `X-Request-ID` header and included
@@ -249,7 +234,6 @@ app/
   models.py           database tables
   schemas.py          request and response shapes
   errors.py           one error shape for the whole API
-  rate_limit.py       per-client request limits
   security.py         API key check for write endpoints
   logging_config.py   log format and the request-id context
   middleware.py       request ids and the access log

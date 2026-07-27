@@ -33,7 +33,13 @@ def require_api_key(provided: Annotated[str | None, Depends(_api_key_header)]) -
     # compare_digest rather than ==, so the time taken does not depend on how
     # many characters matched. A plain comparison leaks the key one character
     # at a time to anyone willing to measure.
-    if not provided or not secrets.compare_digest(provided, settings.api_key):
+    #
+    # Encoded first: headers arrive as latin-1, so a caller can send bytes that
+    # decode to non-ASCII, and compare_digest raises TypeError on non-ASCII
+    # strings. That turned a wrong key into a 500 instead of a 401.
+    if not provided or not secrets.compare_digest(
+        provided.encode("utf-8"), settings.api_key.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API key",

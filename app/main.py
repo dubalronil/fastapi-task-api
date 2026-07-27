@@ -14,7 +14,6 @@ from app.database import DbSession
 from app.errors import register_error_handlers
 from app.logging_config import configure_logging
 from app.middleware import register_middleware
-from app.rate_limit import register_rate_limiting
 from app.routers import tasks
 from app.security import warn_if_unprotected
 
@@ -28,7 +27,6 @@ app = FastAPI(title="Task API")
 
 register_error_handlers(app)
 register_middleware(app)
-register_rate_limiting(app)
 
 # Named origins rather than "*": a wildcard cannot be combined with credentials
 # later, and listing them keeps the allowed callers visible in config.

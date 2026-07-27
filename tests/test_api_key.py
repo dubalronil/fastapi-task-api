@@ -67,6 +67,22 @@ def test_reads_are_not_gated(client):
     assert gated_reads == []
 
 
+@pytest.mark.parametrize("value", ["kéy", "ключ", "\xff\xfe"])
+def test_a_non_ascii_key_is_rejected_rather_than_crashing(protected, value):
+    """Headers arrive decoded as latin-1, so a caller can send bytes that
+    become non-ASCII text. compare_digest raises TypeError on non-ASCII
+    strings, which turned a wrong key into a 500 instead of a 401.
+
+    Called directly: the test client refuses to send such a header, so only a
+    raw socket reaches this path in reality.
+    """
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as raised:
+        security.require_api_key(value)
+    assert raised.value.status_code == 401
+
+
 def test_a_wrong_key_is_rejected(client, protected):
     response = client.post("/tasks", json=NEW_TASK, headers={"X-API-Key": "wrong"})
     assert response.status_code == 401

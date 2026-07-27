@@ -7,14 +7,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from app import models  # noqa: F401 — imported so its table registers on Base
-from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-
-# The whole suite shares one client address, so the real limit would throttle
-# the tests themselves. Rate limiting is covered in test_rate_limit.py, which
-# builds its own app at a deliberately low limit.
-settings.rate_limit = "1000000/minute"
 
 # Separate databases from the one the app uses, on the same Postgres container.
 # Tests run on the same engine as production, so engine-specific behaviour

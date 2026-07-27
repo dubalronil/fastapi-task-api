@@ -16,7 +16,10 @@ if not config.get_main_option("sqlalchemy.url", None):
     config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers defaults to True, which would switch off every
+    # logger alembic.ini does not name — including the app's. That is invisible
+    # until something runs a migration in-process and the app goes quiet.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # What autogenerate compares the database against.
 target_metadata = Base.metadata
