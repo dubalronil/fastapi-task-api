@@ -8,12 +8,12 @@ a completed flag — so the engineering around it is the interesting part.
 
 ```mermaid
 flowchart TD
-    Browser[Browser] --> Next[Next.js server route<br/>on Vercel]
-    Next --> API[FastAPI on Railway]
+    Browser[Browser] --> Next["Next.js server route (Vercel)"]
+    Next --> API["FastAPI (Railway)"]
 
     subgraph Inside FastAPI
-        API --> MW[Middleware<br/>request id + access log]
-        MW --> Key[API key check<br/>writes only]
+        API --> MW["Middleware (request ID + access log)"]
+        MW --> Key["API key check (writes only)"]
         Key --> Valid[Pydantic validation]
         Valid --> Router[Router]
     end
